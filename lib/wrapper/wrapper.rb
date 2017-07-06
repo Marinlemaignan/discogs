@@ -2,7 +2,7 @@
 
 require 'hashie'
 require 'json'
-require 'net/http'
+require 'httparty'
 require 'stringio'
 require 'uri'
 require 'cgi'
@@ -733,7 +733,7 @@ class Discogs::Wrapper
 
     if data != ""
       hash = JSON.parse(data)
-      Hashie::Mash.new(hash)
+      Hashie::Mash.new(sanitize_hash(hash))
     else
       Hashie::Mash.new
     end
@@ -746,7 +746,7 @@ class Discogs::Wrapper
     raise_unknown_resource(path) if response.code == "404"
     raise_authentication_error(path) if response.code == "401"
     raise_internal_server_error if response.code == "500"
-
+    
     # Unzip the response data, or just read it in directly
     # if the API responds without gzipping.
     response_body = nil
@@ -764,7 +764,7 @@ class Discogs::Wrapper
   def make_request(path, params, method, body)
     full_params   = params.merge(auth_params)
     uri           = build_uri(path, full_params)
-    formatted     = "#{uri.path}?#{uri.query}"
+    formatted     = "#{uri.path}?#{uri.query}" 
     output_format = full_params.fetch(:f, "json")
     headers       = {"Accept"          => "application/#{output_format}",
                      "Accept-Encoding" => "gzip,deflate",
@@ -778,17 +778,8 @@ class Discogs::Wrapper
         @access_token.send(method, formatted, headers)
       end
     else
-      # All non-authenticated endpoints are GET.
-      request = Net::HTTP::Get.new(formatted)
-
-      headers.each do |h, v|
-        request.add_field(h, v)
-      end
-
-      Net::HTTP.start(uri.host, uri.port,
-        :use_ssl => uri.scheme == 'https') do |http|
-        http.request(request)
-      end
+     # All non-authenticated endpoints are GET.
+      HTTParty.get(uri, headers: headers)
     end
   end
 
@@ -802,13 +793,41 @@ class Discogs::Wrapper
 
   # Stringifies keys and sorts.
   def prepare_hash(h)
-    result = {}
-
-    h.each do |k, v|
-      result[k.to_s] = v
-    end
+    result = Hash[
+      h.map do |k, v|
+        [k.to_s, v]
+      end
+    ]
 
     result.sort
+  end
+
+  # Replaces known conflicting keys with safe names in a nested hash structure.
+  def sanitize_hash(hash)
+    conflicts = {"count" => "total"}
+    result = {}
+
+    for k, v in hash
+      safe_name = conflicts[k]
+
+      if safe_name
+        # BC: Temporary set original key for backwards-compatibility.
+        warn "[DEPRECATED]: The key '#{k}' has been replaced with '#{safe_name}'. When accessing, please use the latter. This message will be removed in the next major release."
+        result[k] = v
+        # End BC
+
+        result[safe_name] = v
+        k = safe_name
+      else
+        result[k] = v
+      end
+
+      if v.is_a?(Hash)
+        result[k] = sanitize_hash(result[k])
+      end
+    end
+
+    result
   end
 
   def raise_unknown_resource(path="")

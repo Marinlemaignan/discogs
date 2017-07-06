@@ -10,18 +10,7 @@ describe Discogs::Wrapper do
   describe ".get_artist" do
 
     before do
-      @http_request = double(Net::HTTP)
-      @http_response = double(Net::HTTPResponse)
-      
-      allow(@http_response).to receive_messages(:code => "200", :body => read_sample("artist"))
-
-      @http_response_as_file = double(StringIO)
-      
-      allow(@http_response_as_file).to receive_messages(:read => read_sample("artist"))
-
-      allow(Zlib::GzipReader).to receive(:new).and_return(@http_response_as_file)
-      allow(@http_request).to receive(:start).and_return(@http_response)
-      allow(Net::HTTP).to receive(:new).and_return(@http_request)
+      mock_httparty("artist")
 
       @artist = @wrapper.get_artist(@artist_id)
     end
@@ -45,7 +34,7 @@ describe Discogs::Wrapper do
       end
 
       it "should have one or more members" do
-        @artist.members.should be_instance_of(Array)
+        @artist.members.should be_instance_of(Hashie::Array)
         @artist.members[0].name.should == "Greg Lindstrom"
       end
 
@@ -58,13 +47,13 @@ describe Discogs::Wrapper do
     describe "when calling complex artist attributes" do
 
       it "should have a traversible list of URLs" do
-        @artist.urls.should be_instance_of(Array)
+        @artist.urls.should be_instance_of(Hashie::Array)
         @artist.urls[0].should == "http://www.truemetal.org/cirithungol"
         @artist.urls[1].should == "http://www.myspace.com/cirithungol"
       end
 
       it "should have a traversible list of images" do
-        @artist.images.should be_instance_of(Array)
+        @artist.images.should be_instance_of(Hashie::Array)
       end
 
       it "should have specifications for each image" do

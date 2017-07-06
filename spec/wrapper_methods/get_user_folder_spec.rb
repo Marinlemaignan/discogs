@@ -11,18 +11,7 @@ describe Discogs::Wrapper do
   describe ".get_user_folder" do
 
     before do
-      @http_request = double(Net::HTTP)
-      @http_response = double(Net::HTTPResponse)
-      
-      allow(@http_response).to receive_messages(:code => "200", :body => read_sample("user_folder"))
-
-      @http_response_as_file = double(StringIO)
-      
-      allow(@http_response_as_file).to receive_messages(:read => read_sample("user_folder"))
-
-      expect(Zlib::GzipReader).to receive(:new).and_return(@http_response_as_file)
-      expect(@http_request).to receive(:start).and_return(@http_response)
-      expect(Net::HTTP).to receive(:new).and_return(@http_request)
+      mock_httparty("user_folder")
 
       @user_folder = @wrapper.get_user_folder(@user_name, @folder_id)
     end
@@ -33,7 +22,12 @@ describe Discogs::Wrapper do
         expect(@user_folder.name).to eq("Uncategorized")
       end
 
-      it "should have a count" do
+      it "should have sanitized count" do
+        expect(@user_folder.total).to eq(20)
+        expect(@user_folder.count).to eq(4 + 1) # Plus one to be removed after backwards-compatibility fix has been removed.
+      end
+
+      it "should have a backwards-compatible count" do
         expect(@user_folder[:count]).to eq(20)
       end
 

@@ -10,18 +10,7 @@ describe Discogs::Wrapper do
   describe "when asking for label information" do
 
     before do
-      @http_request = double(Net::HTTP)
-      @http_response = double(Net::HTTPResponse)
-      
-      allow(@http_response).to receive_messages(:code => "200", :body => read_sample("label"))
-
-      @http_response_as_file = double(StringIO)
-      
-      allow(@http_response_as_file).to receive_messages(:read => read_sample("label"))
-
-      allow(Zlib::GzipReader).to receive(:new).and_return(@http_response_as_file)
-      allow(@http_request).to receive(:start).and_return(@http_response)
-      allow(Net::HTTP).to receive(:new).and_return(@http_request)
+      mock_httparty("label")
 
       @label = @wrapper.get_label(@label_id)
     end
@@ -45,7 +34,7 @@ describe Discogs::Wrapper do
       end
 
       it "should have one or more URLs" do
-        expect(@label.urls).to be_instance_of(Array)
+        expect(@label.urls).to be_instance_of(Hashie::Array)
         expect(@label.urls[0]).to eq("http://www.warnerbrosrecords.com/")
         expect(@label.urls[1]).to eq("http://www.facebook.com/WarnerBrosRecords")
       end
@@ -55,11 +44,11 @@ describe Discogs::Wrapper do
     describe "when calling complex artist attributes" do
  
       it "should have a traversible list of images" do
-        expect(@label.images).to be_instance_of(Array)
+        expect(@label.images).to be_instance_of(Hashie::Array)
       end
 
       it "should have a traversible list of sub-labels" do
-        expect(@label.sublabels).to be_instance_of(Array)
+        expect(@label.sublabels).to be_instance_of(Hashie::Array)
         expect(@label.sublabels[0].name).to eq("1017 Brick Squad Records")
       end
  

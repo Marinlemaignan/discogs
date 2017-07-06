@@ -3,28 +3,12 @@ require 'spec_helper'
 describe Discogs::Wrapper do
 
   def mock_http_with_response(code="200", response=nil)
-    @http_request = double(Net::HTTP)
-    @http_response = double(Net::HTTPResponse)
-    
+    @http_response = double(HTTParty::Response)
+    @http_request = class_double(HTTParty).as_stubbed_const
+
     allow(@http_response).to receive_messages(:code => code, :body => "")
 
-    unless response.nil?
-      @http_response_as_file = double(StringIO)
-
-      allow(@http_response_as_file).to receive_messages(:read => response)
-
-      Zlib::GzipReader.should_receive(:new).and_return(@http_response_as_file)
-    end
-
-    # As of 04/09/2010 - The and_yield method is not working for me. I've removed
-    # this from the specs for now, but it's a little troubling because it used to
-    # work correctly... (replacement on line #21)
-    #@http_session = mock("HTTP Session")
-    #@http_session.should_receive(:request).and_return(@http_response)
-    #@http_request.should_receive(:start).and_yield(@http_session)
-
-    @http_request.should_receive(:start).and_return(@http_response)
-    Net::HTTP.should_receive(:new).and_return(@http_request)
+    @http_request.should_receive(:get).and_return(@http_response)
   end
 
   before do
@@ -45,7 +29,7 @@ describe Discogs::Wrapper do
   describe "requested URIs" do
     before do
       @uri = double("uri")
-      
+
       allow(@uri).to receive_messages(:host => "", :query => "", :path => "", :port => "", :scheme => "")
     end
 
@@ -69,7 +53,7 @@ describe Discogs::Wrapper do
 
       @wrapper.get_artist_releases(@artist_id, :page => 2, :per_page => 100)
     end
- 
+
     it "should generate the correct label URL to parse" do
       mock_http_with_response "200", read_sample("label")
       URI.should_receive(:parse).with("https://api.discogs.com/labels/1000?f=json").and_return(@uri)
@@ -84,32 +68,37 @@ describe Discogs::Wrapper do
       @wrapper.get_label_releases(@label_id, :page => 2, :per_page => 100)
     end
 
-    it "should generate the correct default to URL to parse" do
-      mock_http_with_response "200", read_sample("search_results")
-      URI.should_receive(:parse).with("https://api.discogs.com/database/search?f=json&q=barry").and_return(@uri)
+    context "#search" do
+      before do
+        @wrapper = Discogs::Wrapper.new(@app_name, user_token: "fake_token")
+      end
 
-      @wrapper.search(@search_term)
-    end
+      it "should generate the correct default to URL to parse" do
+        mock_http_with_response "200", read_sample("search_results")
+        URI.should_receive(:parse).with("https://api.discogs.com/database/search?f=json&q=barry&token=fake_token").and_return(@uri)
 
-    it "should generate the correct paginated search URL to parse" do
-      mock_http_with_response "200", read_sample("search_results")
-      URI.should_receive(:parse).with("https://api.discogs.com/database/search?f=json&page=2&per_page=100&q=barry").and_return(@uri)
+        @wrapper.search(@search_term)
+      end
 
-      @wrapper.search(@search_term, :page => 2, :per_page => 100)
-    end
+      it "should generate the correct paginated search URL to parse" do
+        mock_http_with_response "200", read_sample("search_results")
+        URI.should_receive(:parse).with("https://api.discogs.com/database/search?f=json&page=2&per_page=100&q=barry&token=fake_token").and_return(@uri)
 
-    it "should generate another correct paginated search URL to parse" do
-      mock_http_with_response "200", read_sample("search_results")
-      URI.should_receive(:parse).with("https://api.discogs.com/database/search?f=json&page=2&q=barry").and_return(@uri)
+        @wrapper.search(@search_term, :page => 2, :per_page => 100)
+      end
 
-      @wrapper.search(@search_term, :page => 2)
-    end
+      it "should generate another correct paginated search URL to parse" do
+        mock_http_with_response "200", read_sample("search_results")
+        URI.should_receive(:parse).with("https://api.discogs.com/database/search?f=json&page=2&q=barry&token=fake_token").and_return(@uri)
 
-    it "should sanitize the path correctly" do
-      mock_http_with_response "200", read_sample("search_results")
-      URI.should_receive(:parse).with("https://api.discogs.com/database/search?f=json&q=Two+Words").and_return(@uri)
+        @wrapper.search(@search_term, :page => 2)
+      end
 
-      @wrapper.search("Two Words")
+      it "should sanitize the path correctly" do
+        mock_http_with_response "200", read_sample("search_results")
+        URI.should_receive(:parse).with("https://api.discogs.com/database/search?f=json&q=Two+Words&token=fake_token").and_return(@uri)
+        @wrapper.search("Two Words")
+      end
     end
 
     it "should generate the correct default user inventory URL to parse" do
@@ -135,7 +124,7 @@ describe Discogs::Wrapper do
 
     it "should generate the correct URL to parse when given raw URL" do
       @search_uri = double("uri")
-      
+
       allow(@search_uri).to receive_messages(:host => "api.discogs.com", :query => "q=Sombre+Records&per_page=50&type=release&page=11", :path => "database/search")
 
       mock_http_with_response "200", read_sample("search_results")
@@ -147,7 +136,7 @@ describe Discogs::Wrapper do
 
     it "should generate the correct URL to parse when given raw URL with no query" do
       @artist_uri = double("uri")
-      
+
       allow(@artist_uri).to receive_messages(:host => "api.discogs.com", :query => "", :path => "artists/1000")
 
       mock_http_with_response "200", read_sample("artist")

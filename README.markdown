@@ -29,9 +29,12 @@ ABOUT
   * Pagination / Sorting
 
 
+DOCUMENTATION
+------------
+  You can read the documentation at [this projects RDoc page](http://rdoc.info/github/buntine/discogs/master/frames).
+
   The Discogs API is [documented here](http://www.discogs.com/developers/index.html).
 
-  You can see all implemented methods on [this projects RDoc page](http://rdoc.info/github/buntine/discogs/master/frames).
 
 INSTALLATION
 ------------
@@ -42,6 +45,7 @@ INSTALLATION
   Or, if you are using Bundler:
 
     gem "discogs-wrapper"
+
 
 USAGE
 -----
@@ -96,6 +100,19 @@ search.results.first.id              # => 691078
 
   You can see all implemented methods on [this projects RDoc page](http://rdoc.info/github/buntine/discogs/master/frames).
 
+
+SANITIZATION
+------------
+  The Discogs.com API uses the name "count" in several places, which is sanitized to "total" in this gem in order to prevent overriding the `count` attribute of `Hash`.
+
+  For example:
+
+```ruby
+release.rating.count # => Returns number of keys in "rating" Hash.
+release.rating.total # => Returns total number of ratings as per Discogs API response.
+```
+
+
 AUTHENTICATION
 --------------
   Many of the API endpoints require the user to be authenticated via oAuth. The library provides support for this.
@@ -145,6 +162,7 @@ def another_action
 end
 ```
 
+
 PAGINATION
 ----------
   All API endpoints that accept pagination, sorting or other parameters are supported.
@@ -161,9 +179,11 @@ wrapper.get_artist_releases(345211, :page => 2, :per_page => 10)
 wrapper.get_user_inventory("username", :page => 3, :sort => "price", :sort_order => "asc")
 ```
 
+
 LICENSE
 -----
   See the LICENCE file. Copyright (c) Andrew Buntine
+
 
 CONTRIBUTORS
 ------------
